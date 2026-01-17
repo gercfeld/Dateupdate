@@ -5,7 +5,7 @@ from telegram import Bot
 
 # === НАСТРОЙКИ ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHANNEL_ID = -1002886998801
+CHANNEL_ID = -1002886999801
 CREATION_DATE = date(2025, 7, 19)
 # =================
 
@@ -68,3 +68,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
