@@ -1,16 +1,21 @@
 import os
 import asyncio
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 from telegram import Bot
+from telegram.error import BadRequest
 
 # === НАСТРОЙКИ ===
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN")  # или впиши токен строкой
 CHANNEL_ID = -1002886999801
 CREATION_DATE = date(2025, 7, 19)
+TZ = ZoneInfo("Europe/Moscow")
 # =================
 
+
 def days_since_creation() -> int:
-    return (date.today() - CREATION_DATE).days
+    today_msk = datetime.now(TZ).date()
+    return (today_msk - CREATION_DATE).days
 
 
 def build_description(days: int) -> str:
@@ -29,17 +34,25 @@ def build_description(days: int) -> str:
 
 async def update_description(bot: Bot):
     days = days_since_creation()
+    text = build_description(days)
 
-    await bot.set_chat_description(
-        chat_id=CHANNEL_ID,
-        description=build_description(days)
-    )
+    try:
+        await bot.set_chat_description(
+            chat_id=CHANNEL_ID,
+            description=text
+        )
+        print(f"[OK] Описание обновлено: {days} дней")
 
-    print(f"[OK] Обновлено: {days} дней")
+    except BadRequest as e:
+        # Telegram кидает эту ошибку, если текст не изменился
+        if "not modified" in str(e):
+            print("[INFO] Описание не изменилось, пропускаем")
+        else:
+            raise  # все остальные ошибки считаем критичными
 
 
-def seconds_until_midnight() -> int:
-    now = datetime.now()
+def seconds_until_midnight_msk() -> int:
+    now = datetime.now(TZ)
     tomorrow = (now + timedelta(days=1)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
@@ -47,14 +60,20 @@ def seconds_until_midnight() -> int:
 
 
 async def main():
+    if not BOT_TOKEN:
+        raise RuntimeError("BOT_TOKEN не задан")
+
     bot = Bot(token=BOT_TOKEN)
 
-    # Обновление сразу при запуске
+    print("[START] Бот запущен")
+    print("[TIME] Текущее время МСК:", datetime.now(TZ))
+
+    # Обновляем сразу при старте
     await update_description(bot)
 
     while True:
-        wait_seconds = seconds_until_midnight()
-        print(f"[INFO] Следующее обновление через {wait_seconds} сек.")
+        wait_seconds = seconds_until_midnight_msk()
+        print(f"[WAIT] Следующее обновление через {wait_seconds} сек. (00:00 МСК)")
 
         await asyncio.sleep(wait_seconds)
 
@@ -62,8 +81,6 @@ async def main():
             await update_description(bot)
         except Exception as e:
             print("[ERROR]", e)
-
-        await asyncio.sleep(60 * 60 * 24)
 
 
 if __name__ == "__main__":
