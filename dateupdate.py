@@ -19,6 +19,7 @@ def days_since_creation() -> int:
 
 
 def build_description(days: int) -> str:
+    print('описание изменено')
     return f"""Привет! Это канала робуксов. Тут будут проводиться розыгрыши на робуксы и звёзды.
 
 Владелец, по всем вопросам и проблемам: @Lee_der_CEO
@@ -85,4 +86,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
