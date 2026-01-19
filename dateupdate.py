@@ -1,25 +1,23 @@
 import os
 import asyncio
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 from telegram import Bot
 from telegram.error import BadRequest
 
-# === НАСТРОЙКИ ===
-BOT_TOKEN = os.getenv("BOT_TOKEN")  # или впиши токен строкой
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = -1002886999801
 CREATION_DATE = date(2025, 7, 19)
 TZ = ZoneInfo("Europe/Moscow")
-# =================
+
+last_update_date = None
 
 
 def days_since_creation() -> int:
-    today_msk = datetime.now(TZ).date()
-    return (today_msk - CREATION_DATE).days
+    return (datetime.now(TZ).date() - CREATION_DATE).days
 
 
 def build_description(days: int) -> str:
-    print('описание изменено')
     return f"""Привет! Это канала робуксов. Тут будут проводиться розыгрыши на робуксы и звёзды.
 
 Владелец, по всем вопросам и проблемам: @Lee_der_CEO
@@ -34,57 +32,45 @@ def build_description(days: int) -> str:
 
 
 async def update_description(bot: Bot):
-    days = days_since_creation()
-    text = build_description(days)
+    global last_update_date
+
+    today = datetime.now(TZ).date()
+    if last_update_date == today:
+        return
 
     try:
         await bot.set_chat_description(
             chat_id=CHANNEL_ID,
-            description=text
+            description=build_description(days_since_creation())
         )
-        print(f"[OK] Описание обновлено: {days} дней")
+        last_update_date = today
+        print(f"[OK] Обновлено {today}")
 
     except BadRequest as e:
-        # Telegram кидает эту ошибку, если текст не изменился
         if "not modified" in str(e):
-            print("[INFO] Описание не изменилось, пропускаем")
+            last_update_date = today
+            print("[INFO] Описание не изменилось")
         else:
-            raise  # все остальные ошибки считаем критичными
-
-
-def seconds_until_midnight_msk() -> int:
-    now = datetime.now(TZ)
-    tomorrow = (now + timedelta(days=1)).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
-    return int((tomorrow - now).total_seconds())
+            raise
 
 
 async def main():
-    if not BOT_TOKEN:
-        raise RuntimeError("BOT_TOKEN не задан")
-
     bot = Bot(token=BOT_TOKEN)
 
-    print("[START] Бот запущен")
-    print("[TIME] Текущее время МСК:", datetime.now(TZ))
+    print("[START]", datetime.now(TZ))
 
-    # Обновляем сразу при старте
+    # обновление при запуске
     await update_description(bot)
 
     while True:
-        wait_seconds = seconds_until_midnight_msk()
-        print(f"[WAIT] Следующее обновление через {wait_seconds} сек. (00:00 МСК)")
+        now = datetime.now(TZ)
 
-        await asyncio.sleep(wait_seconds)
-
-        try:
+        # если ровно полночь (с запасом в минуту)
+        if now.hour == 0 and now.minute == 0:
             await update_description(bot)
-        except Exception as e:
-            print("[ERROR]", e)
+
+        await asyncio.sleep(60)  # проверка раз в минуту
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
